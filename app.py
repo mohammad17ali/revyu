@@ -7,7 +7,9 @@ import datetime
 from collections import Counter
 import json
 import time
-
+import io
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 import requests
 import pandas as pd
 import numpy as np
@@ -149,6 +151,38 @@ def process_store_list(store_list):
     processor.save_datasets(positive_dataset, negative_dataset, critical_dataset)
 
   return positive_dataset, negative_dataset, critical_dataset
+
+# Add this function for creating download buttons
+def create_download_button(data, filename, button_text):
+    """Create a download button for CSV data"""
+    if data:
+        df = pd.DataFrame(data)
+        csv = df.to_csv(index=False)
+        return st.download_button(
+            label=button_text,
+            data=csv,
+            file_name=filename,
+            mime="text/csv"
+        )
+    return None
+
+# Add this function for generating word clouds
+def generate_wordcloud(text, title):
+    """Generate and display a word cloud"""
+    if text:
+        wordcloud = WordCloud(
+            width=800, 
+            height=400, 
+            background_color='white',
+            colormap='viridis'
+        ).generate(text)
+        
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.imshow(wordcloud, interpolation='bilinear')
+        ax.set_title(title, fontsize=16)
+        ax.axis('off')
+        st.pyplot(fig)
+
 
 class FashionFeedbackProcessor:
 
@@ -1200,6 +1234,29 @@ if page == "Review Processor":
         with col2:
             if st.session_state.processed_data:
                 st.success(f"Last processed: {len(selected_stores)} stores")
+                st.divider()
+                st.subheader("📥 Download Datasets")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    create_download_button(
+                        st.session_state.positive_dataset,
+                        "positive_reviews.csv",
+                        "📊 Download Positive Reviews"
+                    )
+                with col2:
+                    create_download_button(
+                        st.session_state.negative_dataset,
+                        "negative_reviews.csv",
+                        "📊 Download Negative Reviews"
+                    )
+                with col3:
+                    create_download_button(
+                        st.session_state.critical_dataset,
+                        "critical_reviews.csv",
+                        "📊 Download Critical Reviews"
+                    )
+
         
         if process_button and selected_stores:
             with st.spinner("Processing reviews... This may take a few minutes"):
@@ -1241,6 +1298,7 @@ if page == "Review Processor":
                     
                 except Exception as e:
                     st.error(f"Error during processing: {str(e)}")
+        
     
     with tab2:
         st.header("Single Review Testing")
