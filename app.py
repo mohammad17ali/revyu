@@ -566,10 +566,10 @@ elif page == "Action Center":
         st.info("No actions have been processed yet. Process critical reviews to see action results.")
 
 # Footer
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Customer Review Processor v1.0**")
-st.sidebar.markdown("Built with Streamlit & OpenAI")
-st.sidebar.markdown("📁 Functions imported from `functions.py`")Initializing AI processor...")
-                    progress_bar.progress(10)
-                    processor = FashionFeedbackProcessor(st.session_state.openai_api_key)
+# st.sidebar.markdown("---")
+# st.sidebar.markdown("**Customer Review Processor v1.0**")
+# st.sidebar.markdown("Built with Streamlit & OpenAI")
+# st.sidebar.markdown("📁 Functions imported from `functions.py`")Initializing AI processor...")
+#                     progress_bar.progress(10)
+#                     processor = FashionFeedbackProcessor(st.session_state.openai_api_key)
                     
