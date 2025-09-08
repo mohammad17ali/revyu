@@ -11,7 +11,7 @@ import time
 import requests
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import json
 from openai import OpenAI
 from typing import List, Dict, Any, Optional
