@@ -1271,7 +1271,7 @@ if page == "Review Processor":
                 with st.spinner("Analyzing review..."):
                     try:
                         # Process single review (you'll need to implement this method)
-                        result = process_single_review(review_text, test_store, st.session_state.openai_api_key)
+                        result = process_single_review(review_text, st.session_state.openai_api_key)
                         
                         if result:
                             st.success("✅ Review processed successfully!")
