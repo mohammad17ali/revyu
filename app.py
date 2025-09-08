@@ -1216,17 +1216,6 @@ if page == "Review Processor":
                     progress_bar.progress(30)
                     processor = FashionFeedbackProcessor(st.session_state.openai_api_key)
                     
-                    # Call your processing function
-                    if process_button and selected_stores:
-                    if not st.session_state.openai_api_key:
-                        st.error("Please configure your OpenAI API key first.")
-                    elif not 'google_maps_api_key' in st.session_state:
-                        st.error("Please configure your Google Maps API key first.")
-                    else:
-                        with st.spinner("Processing reviews... This may take a few minutes"):                                # Initialize processor
-                                
-                                
-                                # Rest of the processing code...
                     positive_dataset, negative_dataset, critical_dataset = process_store_list(selected_stores)
                     progress_bar.progress(70)
                     
