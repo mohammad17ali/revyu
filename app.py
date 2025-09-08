@@ -7,18 +7,18 @@ import datetime
 from collections import Counter
 import json
 import time
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+import io
 
 import requests
-import pandas as pd
 import numpy as np
-# import matplotlib.pyplot as plt
 import json
 from openai import OpenAI
 from typing import List, Dict, Any, Optional
 import time
 import logging
 import uuid
-import datetime
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
@@ -34,41 +34,6 @@ logger = logging.getLogger(__name__)
 client = None
 api_key = None
 processor = None
-
-
-def fetch_gmap_place_id(place_name):
-
-    search_url = (
-        "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
-        f"?input={place_name}&inputtype=textquery&fields=place_id&key={api_key}"
-    )
-    search_resp = requests.get(search_url)
-    data = search_resp.json()
-
-    if not data.get("candidates"):
-        return f"No place found for '{place_name}'."
-
-    place_id = data["candidates"][0]["place_id"]
-
-    return place_id
-
-def fetch_google_reviews(place_id, api_key):
-    details_url = (
-        "https://maps.googleapis.com/maps/api/place/details/json"
-        f"?place_id={place_id}&fields=name,rating,reviews&key={api_key}"
-    )
-    details_resp = requests.get(details_url)
-    details_data = details_resp.json()
-
-    reviews = []
-    for rev in details_data.get("result", {}).get("reviews", []):
-        reviews.append({
-            "author": rev.get("author_name"),
-            "rating": rev.get("rating"),
-            "text": rev.get("text")
-        })
-
-    return reviews
 
 def process_store_list(store_list):
   print('Processing store list: ', store_list)
@@ -1049,556 +1014,569 @@ class CriticalReviewAgent:
         }
 
 
-# Import your functions (assuming they're in functions.py)
-# try:
-#     from functions import (
-#         FashionFeedbackProcessor, 
-#         CriticalReviewAgent, 
-#         CriticalReview, 
-#         process_store_list
-#     )
-# except ImportError:
-#     st.error("Please ensure functions.py is in the same directory with all required classes and functions.")
+class Sentiment(Enum):
+    POSITIVE = "Positive"
+    NEGATIVE = "Negative"
+    CRITICAL = "Critical"
+    NEUTRAL = "Neutral"
 
-# Page configuration
-st.set_page_config(
-    page_title="Customer Review Processor",
-    page_icon="🛍️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+@dataclass
+class Action:
+    action_type: str
+    status: str
+    follow_up_required: bool
+    timestamp: datetime.datetime = datetime.datetime.now()
 
-# Initialize session state
-if 'processed_data' not in st.session_state:
-    st.session_state.processed_data = None
-if 'positive_dataset' not in st.session_state:
-    st.session_state.positive_dataset = None
-if 'negative_dataset' not in st.session_state:
-    st.session_state.negative_dataset = None
-if 'critical_dataset' not in st.session_state:
-    st.session_state.critical_dataset = None
-if 'action_results' not in st.session_state:
-    st.session_state.action_results = []
-if 'openai_api_key' not in st.session_state:
-    st.session_state.openai_api_key = ""
+# Define review structure
+@dataclass
+class ProcessedReview:
+    text: str
+    rating: Optional[float]
+    sentiment: Sentiment
+    summary: str
+    issue: Optional[str]
+    is_actionable: bool
+    action: Optional[Action] = None
 
-# Sidebar for navigation
-st.sidebar.title("🛍️ Review Processor")
-page = st.sidebar.selectbox("Select Page", ["Review Processor", "Dashboard", "Action Center"])
+# --- Utility Functions ---
+def fetch_gmap_place_id(place_name):
+    """Fetches the Google Maps Place ID for a given place name."""
+    search_url = (
+        "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
+        f"?input={place_name}&inputtype=textquery&fields=place_id&key={api_key}"
+    )
+    search_resp = requests.get(search_url)
+    data = search_resp.json()
 
-# API Key input in sidebar
-with st.sidebar.expander("API Configuration"):
-    openai_api_key = st.text_input("OpenAI API Key", type="password", value=st.session_state.openai_api_key)
-    google_maps_api_key = st.text_input("Google Maps API Key", type="password", key="gmaps_key")
+    if not data.get("candidates"):
+        return f"No place found for '{place_name}'."
+
+    place_id = data["candidates"][0]["place_id"]
+    return place_id
+
+def fetch_google_reviews(place_id, api_key):
+    """Fetches up to 5 public reviews from a Google Place ID."""
+    details_url = (
+        "https://maps.googleapis.com/maps/api/place/details/json"
+        f"?place_id={place_id}&fields=reviews&key={api_key}"
+    )
+    details_resp = requests.get(details_url)
+    data = details_resp.json()
+
+    if not data.get("result") or not data["result"].get("reviews"):
+        return []
+
+    return data["result"]["reviews"]
+
+def get_system_prompt():
+    """Returns the system prompt for the GPT model."""
+    return """
+    You are a highly analytical and empathetic customer review processing assistant for a business.
+    Your task is to analyze customer reviews, categorize their sentiment, identify the core issue if any,
+    and determine if any follow-up action is required.
     
-    if openai_api_key:
-        st.session_state.openai_api_key = openai_api_key
-        client = OpenAI(api_key=openai_api_key)
-        st.success("OpenAI API Key configured!")
+    You will be given a customer review. Your response MUST be a JSON object with the following keys:
+    'sentiment': one of "Positive", "Negative", or "Critical". Critical sentiment is for reviews that are highly negative and demand immediate attention.
+    'summary': a brief, one-sentence summary of the review's content.
+    'issue': a brief, one-phrase description of the specific problem or issue mentioned. If there is no issue (e.g., for a positive review), state "No issue".
+    'is_actionable': a boolean (true/false) indicating if the review requires a follow-up action. This is true for negative and critical reviews.
+    'action_type': a string describing the type of action to take. For positive reviews, use "Thank You". For negative/critical reviews, use "Customer Outreach" or "Internal Report" or "Service Improvement".
     
-    if google_maps_api_key:
-        api_key = google_maps_api_key
-        st.success("Google Maps API Key configured!")
-    # Initialize global variables
-if st.session_state.openai_api_key:
-    client = OpenAI(api_key=st.session_state.openai_api_key)
-    processor = FashionFeedbackProcessor(st.session_state.openai_api_key)
+    Example response for a positive review:
+    {
+        "sentiment": "Positive",
+        "summary": "Customer praised the friendly staff and clean environment.",
+        "issue": "No issue",
+        "is_actionable": false,
+        "action_type": "Thank You"
+    }
+    
+    Example response for a negative review:
+    {
+        "sentiment": "Negative",
+        "summary": "Customer complained about slow service and cold food.",
+        "issue": "Slow service and cold food",
+        "is_actionable": true,
+        "action_type": "Customer Outreach"
+    }
+    
+    Example response for a critical review:
+    {
+        "sentiment": "Critical",
+        "summary": "Reviewer was extremely angry about a major hygiene violation.",
+        "issue": "Hygiene violation",
+        "is_actionable": true,
+        "action_type": "Internal Report"
+    }
+    
+    Ensure your entire response is a single, valid JSON object. Do not include any other text, explanations, or code outside the JSON.
+    """
 
-
-# Helper functions
-def process_single_review(review_text, store_name, api_key):
-    """Process a single review through the pipeline"""
+def process_review_with_llm(review_text: str) -> Optional[dict]:
+    """Processes a single review using the LLM."""
     try:
-        processor = FashionFeedbackProcessor(api_key)
-        # This would need to be adapted based on your actual single review processing method
-        result = processor.process_single_review(review_text, store_name)
-        return result
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": get_system_prompt()},
+                {"role": "user", "content": review_text},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+        )
+        content = response.choices[0].message.content
+        return json.loads(content)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to decode JSON from LLM response: {e}")
+        logger.error(f"Raw LLM response content: {content}")
+        return None
     except Exception as e:
-        st.error(f"Error processing review: {str(e)}")
+        logger.error(f"An error occurred while calling the LLM: {e}")
         return None
 
-def calculate_satisfaction_scores(positive_dataset):
-    """Calculate average satisfaction scores by store"""
-    if not positive_dataset:
-        return {}
-    
-    store_scores = {}
-    for review in positive_dataset:
-        store = review.get('store_branch', 'Unknown')
-        score = review.get('satisfaction_score', 0)
-        if store not in store_scores:
-            store_scores[store] = []
-        store_scores[store].append(score)
-    
-    # Calculate averages
-    avg_scores = {store: sum(scores)/len(scores) for store, scores in store_scores.items()}
-    return avg_scores
+def send_email(to_email: str, subject: str, body: str):
+    """Sends a follow-up email."""
+    # This is a placeholder for a real email sending service.
+    # In a real app, you'd use a service like SendGrid, Mailgun, or configure an SMTP server.
+    st.info(f"Simulating email send to {to_email} with subject: '{subject}'")
+    st.code(body)
 
-def calculate_dissatisfaction_scores(negative_dataset):
-    """Calculate average criticality scores by store"""
-    if not negative_dataset:
-        return {}
-    
-    store_scores = {}
-    for review in negative_dataset:
-        store = review.get('store_branch', 'Unknown')
-        score = review.get('criticality_score', 0)
-        if store not in store_scores:
-            store_scores[store] = []
-        store_scores[store].append(score)
-    
-    # Calculate averages
-    avg_scores = {store: sum(scores)/len(scores) for store, scores in store_scores.items()}
-    return avg_scores
+# --- Streamlit UI Functions ---
+def setup_sidebar():
+    """Sets up the Streamlit sidebar."""
+    st.sidebar.image("https://placehold.co/150x150/808080/FFFFFF?text=Logo", use_column_width=True)
+    st.sidebar.title("Configuration")
 
-def get_common_issues(negative_dataset, selected_stores):
-    """Get top 5 common issues for selected stores"""
-    if not negative_dataset or not selected_stores:
-        return []
-    
-    issues = []
-    for review in negative_dataset:
-        if review.get('store_branch') in selected_stores:
-            issue = review.get('specific_issue')
-            if issue:
-                issues.append(issue)
-    
-    issue_counts = Counter(issues)
-    return issue_counts.most_common(5)
-
-# PAGE 1: REVIEW PROCESSOR
-if page == "Review Processor":
-    st.title("🔄 Review Processor Pipeline")
-    st.markdown("Process customer reviews through our AI-powered analysis pipeline")
-    
-    if not st.session_state.openai_api_key:
-        st.warning("Please configure your OpenAI API key in the sidebar to proceed.")
-        st.stop()
-    
-    tab1, tab2 = st.tabs(["🏪 Bulk Store Processing", "📝 Single Review Testing"])
-    
-    with tab1:
-        st.header("Bulk Store Processing")
-        st.markdown("Select multiple stores to process all their reviews through the pipeline")
-        
-        # Store selection
-        available_stores = [
-            'Zudio Koramangala', 'Zudio Phoenix Mumbai', 'Zudio Jammu', 
-            'Zudio Bhopal', 'Zudio Velachery', 'Zudio Delhi', 
-            'Zudio Pune', 'Zudio Hyderabad', 'Zudio Chennai'
-        ]
-        
-        selected_stores = st.multiselect(
-            "Select stores to process:",
-            available_stores,
-            default=['Zudio Bhopal', 'Zudio Velachery']
+    with st.sidebar.expander("Google Maps & OpenAI API Keys"):
+        st.info("Enter your API keys to fetch and process reviews.")
+        st.session_state.gmap_api_key = st.text_input(
+            "Google Maps API Key",
+            type="password",
+            value=st.session_state.gmap_api_key if 'gmap_api_key' in st.session_state else ''
         )
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            process_button = st.button("🚀 Process Selected Stores", type="primary")
-        with col2:
-            if st.session_state.processed_data:
-                st.success(f"Last processed: {len(selected_stores)} stores")
-        
-        if process_button and selected_stores:
-            with st.spinner("Processing reviews... This may take a few minutes"):
-                try:
-                    # Progress bar
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    
-                    # Process stores
-                    status_text.text("Initializing processor...")
-                    progress_bar.progress(10)
-                    
-                    status_text.text("Processing store reviews...")
-                    progress_bar.progress(30)
-                    processor = FashionFeedbackProcessor(st.session_state.openai_api_key)
-                    
-                    positive_dataset, negative_dataset, critical_dataset = process_store_list(selected_stores)
-                    progress_bar.progress(70)
-                    
-                    # Store in session state
-                    st.session_state.positive_dataset = positive_dataset
-                    st.session_state.negative_dataset = negative_dataset
-                    st.session_state.critical_dataset = critical_dataset
-                    st.session_state.processed_data = True
-                    
-                    progress_bar.progress(100)
-                    status_text.text("Processing complete!")
-                    
-                    # Display summary
-                    st.success("✅ Processing completed successfully!")
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Positive Reviews", len(positive_dataset))
-                    with col2:
-                        st.metric("Negative Reviews", len(negative_dataset))
-                    with col3:
-                        st.metric("Critical Reviews", len(critical_dataset))
-                    
-                except Exception as e:
-                    st.error(f"Error during processing: {str(e)}")
-    
-    with tab2:
-        st.header("Single Review Testing")
-        st.markdown("Test the pipeline with a single review to see how it works")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            test_store = st.selectbox("Select store:", available_stores)
-        with col2:
-            sentiment_type = st.selectbox("Review Type:", ["Positive", "Negative", "Critical"])
-        
-        # Sample reviews based on type
-        sample_reviews = {
-            "Positive": "Amazing experience at this store! The staff was so helpful and friendly. Found exactly what I was looking for. The kurta collection is fantastic and very reasonably priced. Will definitely come back and recommend to friends!",
-            "Negative": "Very disappointed with the service. The staff was rude and unhelpful. The fitting rooms were dirty and the clothes quality was poor. Waited for 30 minutes just to try on a dress. Not coming back here again.",
-            "Critical": "Terrible experience! The store manager was extremely rude and refused to help with a return. The product was defective but they wouldn't acknowledge it. This is completely unacceptable. I'm posting this on social media to warn others."
-        }
-        
-        review_text = st.text_area(
-            "Enter review text:",
-            value=sample_reviews[sentiment_type],
-            height=100,
-            help="Enter a customer review to process through the pipeline"
+        st.session_state.openai_api_key = st.text_input(
+            "OpenAI API Key",
+            type="password",
+            value=st.session_state.openai_api_key if 'openai_api_key' in st.session_state else ''
         )
-        
-        if st.button("🔍 Analyze Single Review"):
-            if review_text:
-                with st.spinner("Analyzing review..."):
-                    try:
-                        # Process single review (you'll need to implement this method)
-                        result = processor.process_single_review(review_text)
-                        
-                        if result:
-                            st.success("✅ Review processed successfully!")
-                            
-                            # Display results in an expandable format
-                            with st.expander("📊 Analysis Results", expanded=True):
-                                st.json(result)
-                            
-                            # Show classification
-                            sentiment = result.get('sentiment', 'Unknown')
-                            if sentiment == 'Positive':
-                                st.success(f"Classification: {sentiment}")
-                                score = result.get('satisfaction_score', 0)
-                                st.metric("Satisfaction Score", f"{score}/10")
-                            elif sentiment == 'Negative':
-                                st.warning(f"Classification: {sentiment}")
-                                score = result.get('criticality_score', 0)
-                                st.metric("Criticality Score", f"{score}/10")
-                                
-                                if score > 7:
-                                    st.error("⚠️ This review requires immediate attention!")
-                    
-                    except Exception as e:
-                        st.error(f"Error processing review: {str(e)}")
 
-# PAGE 2: DASHBOARD
-elif page == "Dashboard":
-    st.title("📊 Analytics Dashboard")
+    st.sidebar.markdown("---")
+    st.sidebar.header("Review Processor")
     
-    if not st.session_state.processed_data:
-        st.warning("Please process some reviews first using the Review Processor page.")
-        st.stop()
-    
-    st.markdown("Comprehensive analytics from processed customer reviews")
-    
-    # Key metrics row
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Positive", len(st.session_state.positive_dataset or []))
-    with col2:
-        st.metric("Total Negative", len(st.session_state.negative_dataset or []))
-    with col3:
-        st.metric("Critical Issues", len(st.session_state.critical_dataset or []))
-    with col4:
-        critical_high = len([r for r in (st.session_state.critical_dataset or []) if r.get('criticality_score', 0) > 7])
-        st.metric("High Priority", critical_high)
-    
-    st.divider()
-    
-    # Store Leaderboards
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🏆 Top Performing Stores")
-        st.markdown("*Based on customer satisfaction scores*")
-        
-        satisfaction_scores = calculate_satisfaction_scores(st.session_state.positive_dataset)
-        if satisfaction_scores:
-            # Sort by score
-            sorted_stores = sorted(satisfaction_scores.items(), key=lambda x: x[1], reverse=True)
-            
-            # Create bar chart
-            stores = [item[0] for item in sorted_stores]
-            scores = [item[1] for item in sorted_stores]
-            
-            fig = px.bar(
-                x=scores, 
-                y=stores, 
-                orientation='h',
-                title="Average Satisfaction Score by Store",
-                color=scores,
-                color_continuous_scale="Greens"
-            )
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Show top 3
-            st.markdown("**Top 3 Performers:**")
-            for i, (store, score) in enumerate(sorted_stores[:3]):
-                st.write(f"{i+1}. {store}: {score:.1f}/10")
-    
-    with col2:
-        st.subheader("⚠️ Stores Needing Attention")
-        st.markdown("*Based on negative feedback intensity*")
-        
-        dissatisfaction_scores = calculate_dissatisfaction_scores(st.session_state.negative_dataset)
-        if dissatisfaction_scores:
-            # Sort by score (higher is worse)
-            sorted_stores = sorted(dissatisfaction_scores.items(), key=lambda x: x[1], reverse=True)
-            
-            # Create bar chart
-            stores = [item[0] for item in sorted_stores]
-            scores = [item[1] for item in sorted_stores]
-            
-            fig = px.bar(
-                x=scores, 
-                y=stores, 
-                orientation='h',
-                title="Average Criticality Score by Store",
-                color=scores,
-                color_continuous_scale="Reds"
-            )
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Show top 3 issues
-            st.markdown("**Top 3 Areas for Improvement:**")
-            for i, (store, score) in enumerate(sorted_stores[:3]):
-                st.write(f"{i+1}. {store}: {score:.1f}/10")
-    
-    st.divider()
-    
-    # Common Issues Analysis
-    st.subheader("🔍 Common Issues Analysis")
-    st.markdown("Select stores to identify the most common customer complaints")
-    
-    # Store selector for issues analysis
-    all_stores = list(set([r.get('store_branch', 'Unknown') for r in (st.session_state.negative_dataset or [])]))
-    selected_stores_issues = st.multiselect(
-        "Select stores to analyze:",
-        all_stores,
-        default=all_stores[:3] if len(all_stores) >= 3 else all_stores
+    # Existing input and button
+    st.session_state.place_name_default = st.sidebar.text_input(
+        "Enter Business Name or Location",
+        placeholder="e.g., 'The French Laundry' or 'Eiffel Tower Paris'"
     )
-    
-    if selected_stores_issues:
-        common_issues = get_common_issues(st.session_state.negative_dataset, selected_stores_issues)
-        
-        if common_issues:
-            # Create horizontal bar chart
-            issues = [issue[0] for issue in common_issues]
-            counts = [issue[1] for issue in common_issues]
-            
-            fig = px.bar(
-                x=counts,
-                y=issues,
-                orientation='h',
-                title=f"Top 5 Common Issues in Selected Stores",
-                color=counts,
-                color_continuous_scale="Oranges"
-            )
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Display in table format
-            st.markdown("**Issue Breakdown:**")
-            df_issues = pd.DataFrame(common_issues, columns=['Issue', 'Frequency'])
-            st.dataframe(df_issues, use_container_width=True)
-    
-    # Additional Analytics
-    st.divider()
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📈 Sentiment Distribution")
-        if st.session_state.processed_data:
-            sentiment_data = {
-                'Positive': len(st.session_state.positive_dataset or []),
-                'Negative': len(st.session_state.negative_dataset or []),
-                'Critical': len([r for r in (st.session_state.critical_dataset or []) if r.get('criticality_score', 0) > 7])
-            }
-            
-            fig = px.pie(
-                values=list(sentiment_data.values()),
-                names=list(sentiment_data.keys()),
-                color_discrete_sequence=['#00cc44', '#ff9900', '#ff3333']
-            )
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.subheader("⏰ Processing Summary")
-        processing_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        st.info(f"Last updated: {processing_time}")
-        
-        # Summary stats
-        if st.session_state.negative_dataset:
-            avg_criticality = sum([r.get('criticality_score', 0) for r in st.session_state.negative_dataset]) / len(st.session_state.negative_dataset)
-            st.metric("Avg Criticality", f"{avg_criticality:.1f}/10")
-        
-        if st.session_state.positive_dataset:
-            avg_satisfaction = sum([r.get('satisfaction_score', 0) for r in st.session_state.positive_dataset]) / len(st.session_state.positive_dataset)
-            st.metric("Avg Satisfaction", f"{avg_satisfaction:.1f}/10")
+    if st.sidebar.button("Fetch and Process Reviews", use_container_width=True):
+        st.session_state.place_name = st.session_state.place_name_default
+        if not st.session_state.gmap_api_key or not st.session_state.openai_api_key:
+            st.error("Please enter your Google Maps and OpenAI API keys first.")
+        elif not st.session_state.place_name:
+            st.error("Please enter a business name or location.")
+        else:
+            process_reviews_flow()
 
-# PAGE 3: ACTION CENTER
-elif page == "Action Center":
-    st.title("⚡ Action Center")
-    st.markdown("Monitor and execute actions on critical reviews")
+def process_reviews_flow():
+    """The main flow for fetching and processing reviews."""
+    if 'processing_done' in st.session_state and st.session_state.processing_done:
+        st.session_state.processing_done = False
+        st.session_state.processed_reviews = []
+        st.session_state.action_results = []
     
-    if not st.session_state.processed_data:
-        st.warning("Please process some reviews first using the Review Processor page.")
-        st.stop()
+    st.session_state.gmap_api_key = st.session_state.get('gmap_api_key', '')
+    st.session_state.openai_api_key = st.session_state.get('openai_api_key', '')
+
+    if not st.session_state.gmap_api_key or not st.session_state.openai_api_key:
+        st.error("Please enter your API keys to continue.")
+        return
+
+    global client
+    global api_key
+    api_key = st.session_state.openai_api_key
+    client = OpenAI(api_key=api_key)
+
+    if 'place_name' not in st.session_state or not st.session_state.place_name:
+        st.error("Please enter a business name or location to process.")
+        return
+
+    st.subheader(f"Processing Reviews for: **{st.session_state.place_name}**")
     
-    # Critical Review Processing Section
-    st.subheader("🚨 Critical Review Processing")
+    with st.spinner("Fetching place ID..."):
+        place_id = fetch_gmap_place_id(st.session_state.place_name)
+        if "No place found" in place_id:
+            st.error(place_id)
+            return
+
+    st.success(f"Found Place ID: {place_id}", icon="✅")
+
+    with st.spinner("Fetching reviews..."):
+        reviews_data = fetch_google_reviews(place_id, st.session_state.gmap_api_key)
+        if not reviews_data:
+            st.warning("No public reviews found for this place.")
+            return
+
+    st.success(f"Fetched {len(reviews_data)} reviews.", icon="✅")
+
+    st.subheader("Processing Reviews with LLM...")
+    progress_bar = st.progress(0)
+    st.session_state.processed_reviews = []
     
-    critical_reviews = [r for r in (st.session_state.critical_dataset or []) 
-                       if r.get('criticality_score', 0) > 7]
+    # Process reviews
+    for i, review in enumerate(reviews_data):
+        review_text = review.get('text', 'No text provided.')
+        st.write(f"Processing review {i+1}/{len(reviews_data)}...")
+        
+        parsed_data = process_review_with_llm(review_text)
+        if parsed_data:
+            try:
+                processed_review = ProcessedReview(
+                    text=review_text,
+                    rating=review.get('rating'),
+                    sentiment=Sentiment(parsed_data['sentiment']),
+                    summary=parsed_data['summary'],
+                    issue=parsed_data['issue'],
+                    is_actionable=parsed_data['is_actionable'],
+                    action=Action(
+                        action_type=parsed_data['action_type'],
+                        status='Pending',
+                        follow_up_required=parsed_data['is_actionable']
+                    )
+                )
+                st.session_state.processed_reviews.append(processed_review)
+            except (KeyError, ValueError) as e:
+                st.warning(f"Skipping review {i+1} due to parsing error: {e}")
+        
+        progress_bar.progress((i + 1) / len(reviews_data))
+        time.sleep(1) # Simulate processing time
+
+    st.session_state.processing_done = True
+    st.session_state.last_processed_place = st.session_state.place_name
+    st.success("Review processing complete!")
+    st.rerun()
+
+def show_data_preview():
+    """Displays a preview of the processed datasets with download buttons."""
+    if 'processed_reviews' not in st.session_state or not st.session_state.processed_reviews:
+        st.info("No processed data to display. Please process some reviews first.")
+        return
+
+    st.title("Data Preview")
     
-    if not critical_reviews:
-        st.info("No critical reviews requiring immediate action found.")
-    else:
-        st.warning(f"Found {len(critical_reviews)} critical reviews requiring action")
-        
-        # Process critical reviews button
-        if st.button("🤖 Process Critical Reviews", type="primary"):
-            if not st.session_state.openai_api_key:
-                st.error("Please configure your OpenAI API key first.")
-            else:
-                with st.spinner("Processing critical reviews..."):
-                    try:
-                        agent3 = CriticalReviewAgent(st.session_state.openai_api_key)
-                        all_results = []
-                        
-                        progress_bar = st.progress(0)
-                        for i, review in enumerate(critical_reviews):
-                            if review.get('status') != 'processed':
-                                # Convert to CriticalReview object
-                                critical_review = CriticalReview(
-                                    review_id=review.get('specific_issue', f"review_{i}"),
-                                    store_name=review.get('store_branch', 'Unknown'),
-                                    customer_name=review.get('customer_name', 'Anonymous'),
-                                    review_text=review.get('original_review', ''),
-                                    criticality_score=review.get('criticality_score', 0),
-                                    action_to_be_performed=review.get('action_to_be_performed', ''),
-                                    timestamp=datetime.datetime.now()
-                                )
-                                
-                                # Process the review
-                                results = agent3.process_critical_review(critical_review)
-                                
-                                # Store results
-                                review['status'] = 'processed'
-                                review['action_taken'] = results
-                                all_results.extend(results)
-                            
-                            progress_bar.progress((i + 1) / len(critical_reviews))
-                        
-                        # Store results in session state
-                        st.session_state.action_results = all_results
-                        
-                        st.success(f"✅ Processed {len(critical_reviews)} critical reviews!")
-                        
-                    except Exception as e:
-                        st.error(f"Error processing critical reviews: {str(e)}")
+    reviews_df = pd.DataFrame([
+        {
+            'text': r.text,
+            'rating': r.rating,
+            'sentiment': r.sentiment.value,
+            'summary': r.summary,
+            'issue': r.issue,
+            'is_actionable': r.is_actionable,
+            'action_type': r.action.action_type if r.action else 'N/A'
+        }
+        for r in st.session_state.processed_reviews
+    ])
+
+    st.subheader(f"All Reviews ({len(reviews_df)})")
+    st.dataframe(reviews_df, use_container_width=True)
+
+    # --- NEW: Download Buttons for Datasets ---
+    st.header("Download Datasets")
+    col1, col2, col3 = st.columns(3)
+
+    # Positive Reviews
+    positive_df = reviews_df[reviews_df['sentiment'] == Sentiment.POSITIVE.value]
+    csv_positive = positive_df.to_csv(index=False).encode('utf-8')
+    col1.metric("Positive Reviews", len(positive_df))
+    col1.download_button(
+        label="Download Positive",
+        data=csv_positive,
+        file_name='positive_reviews.csv',
+        mime='text/csv',
+        use_container_width=True
+    )
+
+    # Negative Reviews
+    negative_df = reviews_df[reviews_df['sentiment'] == Sentiment.NEGATIVE.value]
+    csv_negative = negative_df.to_csv(index=False).encode('utf-8')
+    col2.metric("Negative Reviews", len(negative_df))
+    col2.download_button(
+        label="Download Negative",
+        data=csv_negative,
+        file_name='negative_reviews.csv',
+        mime='text/csv',
+        use_container_width=True
+    )
+
+    # Critical Reviews
+    critical_df = reviews_df[reviews_df['sentiment'] == Sentiment.CRITICAL.value]
+    csv_critical = critical_df.to_csv(index=False).encode('utf-8')
+    col3.metric("Critical Reviews", len(critical_df))
+    col3.download_button(
+        label="Download Critical",
+        data=csv_critical,
+        file_name='critical_reviews.csv',
+        mime='text/csv',
+        use_container_width=True
+    )
+
+    st.markdown("---")
     
-    st.divider()
+    st.subheader("Positive Reviews")
+    st.dataframe(positive_df, use_container_width=True)
     
-    # Display action results
-    st.subheader("📋 Action Results")
+    st.subheader("Negative Reviews")
+    st.dataframe(negative_df, use_container_width=True)
+
+    st.subheader("Critical Reviews")
+    st.dataframe(critical_df, use_container_width=True)
+
+def create_wordcloud(text_data: str, title: str):
+    """Generates and displays a word cloud from text data."""
+    if not text_data.strip():
+        st.info(f"No text data to generate word cloud for {title}.")
+        return
+
+    # Generate a word cloud image
+    wordcloud = WordCloud(
+        width=800, 
+        height=400, 
+        background_color="white",
+        colormap='viridis'
+    ).generate(text_data)
+
+    # Display the generated image
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wordcloud, interpolation='bilinear')
+    ax.set_title(title, fontsize=20)
+    ax.axis('off')
+    st.pyplot(fig)
+
+def show_dashboard():
+    """Displays the analytical dashboard."""
+    if 'processed_reviews' not in st.session_state or not st.session_state.processed_reviews:
+        st.info("No processed data to build the dashboard. Please process some reviews first.")
+        return
+
+    st.title("Reviews Dashboard")
+    st.subheader(f"Analytics for {st.session_state.last_processed_place}")
     
-    if st.session_state.action_results:
-        # Summary metrics
-        col1, col2, col3 = st.columns(3)
+    reviews_df = pd.DataFrame([
+        {
+            'text': r.text,
+            'rating': r.rating,
+            'sentiment': r.sentiment.value,
+            'summary': r.summary,
+            'issue': r.issue,
+            'is_actionable': r.is_actionable,
+            'action_type': r.action.action_type if r.action else 'N/A'
+        }
+        for r in st.session_state.processed_reviews
+    ])
+    
+    # Overall Sentiment Distribution
+    st.subheader("Overall Sentiment Distribution")
+    sentiment_counts = reviews_df['sentiment'].value_counts().reset_index()
+    sentiment_counts.columns = ['sentiment', 'count']
+    fig = px.pie(
+        sentiment_counts,
+        values='count',
+        names='sentiment',
+        title='Distribution of Review Sentiments',
+        hole=0.3,
+        color='sentiment',
+        color_discrete_map={
+            'Positive': 'green',
+            'Negative': 'orange',
+            'Critical': 'red',
+            'Neutral': 'gray'
+        }
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # --- NEW: Comparative Widgets ---
+    st.header("Comparative Analysis")
+    
+    # Bar Chart: Average Rating per Sentiment
+    st.subheader("Average Rating per Sentiment")
+    avg_ratings = reviews_df.groupby('sentiment')['rating'].mean().reset_index()
+    fig = px.bar(
+        avg_ratings, 
+        x='sentiment', 
+        y='rating', 
+        color='sentiment',
+        title='Average Rating by Sentiment Category',
+        labels={'rating': 'Average Rating', 'sentiment': 'Sentiment'},
+        color_discrete_map={
+            'Positive': 'green',
+            'Negative': 'orange',
+            'Critical': 'red',
+            'Neutral': 'gray'
+        }
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Bar Chart: Actionability by Sentiment
+    st.subheader("Actionability by Sentiment")
+    actionable_counts = reviews_df.groupby('sentiment')['is_actionable'].sum().reset_index()
+    actionable_counts.columns = ['sentiment', 'actionable_count']
+    fig = px.bar(
+        actionable_counts, 
+        x='sentiment', 
+        y='actionable_count', 
+        color='sentiment',
+        title='Number of Actionable Reviews by Sentiment',
+        labels={'actionable_count': 'Count', 'sentiment': 'Sentiment'},
+        color_discrete_map={
+            'Positive': 'green',
+            'Negative': 'orange',
+            'Critical': 'red',
+            'Neutral': 'gray'
+        }
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- NEW: Word Clouds ---
+    st.header("Word Clouds of Key Issues")
+
+    # Word Cloud for Positive Reviews
+    positive_reviews_text = " ".join(
+        reviews_df[reviews_df['sentiment'] == 'Positive']['text'].dropna()
+    )
+    create_wordcloud(positive_reviews_text, "Positive Reviews Word Cloud")
+    
+    # Word Cloud for Negative Reviews
+    negative_reviews_text = " ".join(
+        reviews_df[reviews_df['sentiment'].isin(['Negative', 'Critical'])]['issue'].dropna()
+    )
+    create_wordcloud(negative_reviews_text, "Negative & Critical Issues Word Cloud")
+    
+    st.subheader("Reviews by Rating")
+    fig = px.histogram(
+        reviews_df,
+        x='rating',
+        color='sentiment',
+        title='Distribution of Ratings by Sentiment',
+        nbins=5,
+        labels={'rating': 'Rating', 'count': 'Number of Reviews'},
+        category_orders={'rating': sorted(reviews_df['rating'].unique())},
+        color_discrete_map={
+            'Positive': 'green',
+            'Negative': 'orange',
+            'Critical': 'red',
+            'Neutral': 'gray'
+        }
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+def show_actions():
+    """Displays the action log and follow-up options."""
+    st.title("Actions Log")
+    if 'processed_reviews' in st.session_state and st.session_state.processed_reviews:
+        action_results = []
+        for r in st.session_state.processed_reviews:
+            if r.is_actionable and r.action:
+                action_results.append({
+                    'Review Text': r.text,
+                    'Action Type': r.action.action_type,
+                    'Follow-up Required': r.action.follow_up_required,
+                    'Status': r.action.status,
+                    'Timestamp': r.action.timestamp
+                })
         
-        total_actions = len(st.session_state.action_results)
-        follow_ups_needed = len([r for r in st.session_state.action_results if r.follow_up_required])
-        
-        with col1:
-            st.metric("Total Actions", total_actions)
-        with col2:
-            st.metric("Follow-ups Needed", follow_ups_needed)
-        with col3:
-            completion_rate = ((total_actions - follow_ups_needed) / total_actions * 100) if total_actions > 0 else 0
-            st.metric("Completion Rate", f"{completion_rate:.1f}%")
-        
-        # Detailed action results
-        st.subheader("📧 Email Communications")
-        
-        email_actions = [r for r in st.session_state.action_results 
-                        if 'email_draft' in r.details]
-        
-        if email_actions:
-            for i, action in enumerate(email_actions):
-                with st.expander(f"Email {i+1}: {action.action_type.value}"):
-                    email = action.details['email_draft']
-                    
-                    col1, col2 = st.columns([1, 2])
-                    with col1:
-                        st.write("**To:**", email.get('to', 'N/A'))
-                        st.write("**Subject:**", email.get('subject', 'N/A'))
-                        st.write("**Status:**", action.status)
-                        st.write("**Follow-up:**", "Yes" if action.follow_up_required else "No")
-                    
-                    with col2:
-                        st.write("**Email Content:**")
-                        st.text_area(
-                            "Email Body",
-                            value=email.get('body', 'No content available'),
-                            height=200,
-                            key=f"email_body_{i}",
-                            disabled=True
-                        )
-        
-        # Action type breakdown
-        st.subheader("📊 Action Type Analysis")
-        
-        action_types = [r.action_type.value for r in st.session_state.action_results]
-        action_counts = Counter(action_types)
-        
-        if action_counts:
-            # Create pie chart
-            fig = px.pie(
-                values=list(action_counts.values()),
-                names=list(action_counts.keys()),
-                title="Distribution of Action Types"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Detailed action log
-        st.subheader("📝 Detailed Action Log")
-        
-        action_data = []
-        for action in st.session_state.action_results:
-            action_data.append({
-                'Action Type': action.action_type.value,
-                'Status': action.status,
-                'Follow-up Required': action.follow_up_required,
-                'Timestamp': action.timestamp.strftime('%Y-%m-%d %H:%M:%S') if hasattr(action, 'timestamp') else 'N/A'
-            })
-        
-        if action_data:
-            df_actions = pd.DataFrame(action_data)
+        if action_results:
+            df_actions = pd.DataFrame(action_results)
             st.dataframe(df_actions, use_container_width=True)
-    
+            
+            # Follow-up actions
+            st.subheader("Follow-up Actions")
+            actionable_reviews = [r for r in st.session_state.processed_reviews if r.is_actionable]
+            
+            for i, review in enumerate(actionable_reviews):
+                with st.expander(f"Review from {review.sentiment.value} category"):
+                    st.write(f"**Summary:** {review.summary}")
+                    st.write(f"**Original Text:** {review.text}")
+                    
+                    if st.button(f"Send Follow-up Email (ID: {i+1})"):
+                        subject = f"Follow-up regarding your recent review"
+                        body = f"Dear Customer,\n\nThank you for your feedback regarding '{review.issue}'. We apologize for the inconvenience and would like to learn more about your experience.\n\nSincerely,\nThe Team"
+                        send_email("customer@example.com", subject, body)
+                        st.session_state.action_results.append(Action(
+                            action_type="Email Sent",
+                            status="Completed",
+                            follow_up_required=False,
+                            timestamp=datetime.datetime.now()
+                        ))
+        else:
+            st.info("No actionable reviews found.")
     else:
-        st.info("No actions have been processed yet. Process critical reviews to see action results.")
+        st.info("No reviews have been processed yet.")
 
-# Footer
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Customer Review Processor v1.0**")
-st.sidebar.markdown("Built with Streamlit & OpenAI")
+def show_settings():
+    """Displays a settings page."""
+    st.title("App Settings")
+    st.info("This is a placeholder for future settings.")
+
+# --- Main App Logic ---
+def main():
+    st.set_page_config(
+        page_title="Customer Review Processor",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+
+    if 'page' not in st.session_state:
+        st.session_state.page = 'dashboard'
+    if 'processed_reviews' not in st.session_state:
+        st.session_state.processed_reviews = []
+    if 'action_results' not in st.session_state:
+        st.session_state.action_results = []
+    if 'processing_done' not in st.session_state:
+        st.session_state.processing_done = False
+    if 'gmap_api_key' not in st.session_state:
+        st.session_state.gmap_api_key = ''
+    if 'openai_api_key' not in st.session_state:
+        st.session_state.openai_api_key = ''
+    if 'last_processed_place' not in st.session_state:
+        st.session_state.last_processed_place = 'N/A'
+    
+    setup_sidebar()
+
+    st.sidebar.markdown("---")
+    
+    # --- New Section for Custom Store Processing ---
+    st.sidebar.header("Test Custom Store")
+    st.session_state.place_name = st.sidebar.text_input(
+        "Enter Store Name to Test",
+        placeholder="e.g., 'Starbucks Times Square'",
+        key="custom_store_name_input"
+    )
+    if st.sidebar.button("Process Custom Store", use_container_width=True):
+        if not st.session_state.gmap_api_key or not st.session_state.openai_api_key:
+            st.error("Please enter your API keys first.")
+        elif not st.session_state.place_name:
+            st.error("Please enter a custom store name.")
+        else:
+            process_reviews_flow()
+
+    st.sidebar.markdown("---")
+    st.sidebar.header("Navigation")
+    if st.sidebar.button("Dashboard", use_container_width=True):
+        st.session_state.page = 'dashboard'
+    if st.sidebar.button("Data Preview", use_container_width=True):
+        st.session_state.page = 'data'
+    if st.sidebar.button("Actions Log", use_container_width=True):
+        st.session_state.page = 'actions'
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**Customer Review Processor v2.0**")
+    st.sidebar.markdown("Built with Streamlit & OpenAI")
+
+    if st.session_state.page == 'data':
+        show_data_preview()
+    elif st.session_state.page == 'dashboard':
+        show_dashboard()
+    elif st.session_state.page == 'actions':
+        show_actions()
+
+if __name__ == "__main__":
+    main()
