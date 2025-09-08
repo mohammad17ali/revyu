@@ -26,6 +26,16 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize OpenAI client and other variables
+client = None
+api_key = None
+processor = None
+
+
 def fetch_gmap_place_id(place_name):
 
     search_url = (
@@ -379,6 +389,7 @@ class FashionFeedbackProcessor:
         # detailed_result['original_review'] = review_text
 
         return detailed_result
+    
 
     def process_feedback_batch(self, reviews: List[str]) -> tuple[List[Dict], List[Dict]]:
 
@@ -1077,10 +1088,22 @@ page = st.sidebar.selectbox("Select Page", ["Review Processor", "Dashboard", "Ac
 
 # API Key input in sidebar
 with st.sidebar.expander("API Configuration"):
-    api_key = st.text_input("OpenAI API Key", type="password", value=st.session_state.openai_api_key)
-    if api_key:
-        st.session_state.openai_api_key = api_key
-        st.success("API Key configured!")
+    openai_api_key = st.text_input("OpenAI API Key", type="password", value=st.session_state.openai_api_key)
+    google_maps_api_key = st.text_input("Google Maps API Key", type="password", key="gmaps_key")
+    
+    if openai_api_key:
+        st.session_state.openai_api_key = openai_api_key
+        client = OpenAI(api_key=openai_api_key)
+        st.success("OpenAI API Key configured!")
+    
+    if google_maps_api_key:
+        api_key = google_maps_api_key
+        st.success("Google Maps API Key configured!")
+    # Initialize global variables
+if st.session_state.openai_api_key:
+    client = OpenAI(api_key=st.session_state.openai_api_key)
+    processor = FashionFeedbackProcessor(st.session_state.openai_api_key)
+
 
 # Helper functions
 def process_single_review(review_text, store_name, api_key):
@@ -1191,8 +1214,19 @@ if page == "Review Processor":
                     
                     status_text.text("Processing store reviews...")
                     progress_bar.progress(30)
+                    processor = FashionFeedbackProcessor(st.session_state.openai_api_key)
                     
                     # Call your processing function
+                    if process_button and selected_stores:
+                    if not st.session_state.openai_api_key:
+                        st.error("Please configure your OpenAI API key first.")
+                    elif not 'google_maps_api_key' in st.session_state:
+                        st.error("Please configure your Google Maps API key first.")
+                    else:
+                        with st.spinner("Processing reviews... This may take a few minutes"):                                # Initialize processor
+                                
+                                
+                                # Rest of the processing code...
                     positive_dataset, negative_dataset, critical_dataset = process_store_list(selected_stores)
                     progress_bar.progress(70)
                     
