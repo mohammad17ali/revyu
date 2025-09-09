@@ -1,0 +1,77 @@
+[
+  {
+    "sentiment": "Positive",
+    "customer_name": "Anonymous",
+    "store_branch": "Westside Phoenix Marketcity",
+    "visit_date": null,
+    "brand_mentioned": null,
+    "mentioned_staff": null,
+    "praised_category": "Collection/Variety",
+    "praised_product": null,
+    "specific_praise": "Upgraded collection with trendy options",
+    "customer_praise_quotes": [
+      "Variety of options for all ages",
+      "Quality of clothes is very nice",
+      "Trendy clothes available here"
+    ],
+    "satisfaction_score": 8,
+    "repeat_intent": false,
+    "promo_or_offer_praise": false,
+    "loyalty_signal": false,
+    "brand_affinity_signal": false,
+    "word_of_mouth_intent": false,
+    "purchase_expansion_intent": true,
+    "original_review": "Variety of options for men, women and children. They have upgraded their collection. Quality of clothes is very nice. Price of the clother are a bit on the higher side. Trendy clothes are available here. Home decor are also available here.",
+    "store_name": "Westside Phoenix Marketcity"
+  },
+  {
+    "sentiment": "Positive",
+    "customer_name": "Anonymous",
+    "store_branch": "Westside Phoenix Marketcity",
+    "visit_date": null,
+    "brand_mentioned": null,
+    "mentioned_staff": null,
+    "praised_category": "Store Ambience",
+    "praised_product": null,
+    "specific_praise": "Lively store with helpful staff",
+    "customer_praise_quotes": [
+      "Amazing western music atmosphere",
+      "Assisting staff for best experience",
+      "Cost efficient clothing store"
+    ],
+    "satisfaction_score": 9,
+    "repeat_intent": true,
+    "promo_or_offer_praise": false,
+    "loyalty_signal": true,
+    "brand_affinity_signal": false,
+    "word_of_mouth_intent": true,
+    "purchase_expansion_intent": true,
+    "original_review": "An amazing store to buy clothing material, cosmetics and more. There was amazing western music playing throughout the store which filled the liveliness and the staff were assisting everyone for the best experience and this was one of the most cost efficient clothing store I’ve ever been to.",
+    "store_name": "Westside Phoenix Marketcity"
+  },
+  {
+    "sentiment": "Positive",
+    "customer_name": "Anonymous",
+    "store_branch": "Westside Phoenix Marketcity",
+    "visit_date": null,
+    "brand_mentioned": null,
+    "mentioned_staff": "Manisha. K",
+    "praised_category": "Staff Behavior",
+    "praised_product": null,
+    "specific_praise": "Friendly staff and great collection",
+    "customer_praise_quotes": [
+      "Sweetest Manisha. K at trial rooms",
+      "Took special care during rush",
+      "Made the experience good"
+    ],
+    "satisfaction_score": 9,
+    "repeat_intent": true,
+    "promo_or_offer_praise": false,
+    "loyalty_signal": true,
+    "brand_affinity_signal": true,
+    "word_of_mouth_intent": true,
+    "purchase_expansion_intent": true,
+    "original_review": "great collection and really nice people at the tills! special mention to the sweetest Manisha. K who was managing the trial rooms and even during the rush took special care of us and made the experience good ☺️",
+    "store_name": "Westside Phoenix Marketcity"
+  }
+]
