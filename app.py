@@ -92,8 +92,8 @@ if page != st.session_state.page:
 # API Key input in sidebar
 with st.sidebar.expander("API Configuration"):
     # Set default values if not already set
-    default_openai_key = st.session_state.openai_api_key if st.session_state.openai_api_key else "sk-proj-cXtRTFMtcL-FkSQ1ZqnwcYUva2AtRmNDJY0FiRkyD7ORo5EGWPALxmRBnZq9FQOhZz7HlBcq_pT3BlbkFJuYXMLs3p6-EiBW0edIQOX9TD2ddylWxoo5BFLfmMwlr8Ypg7ZUDDLQ6hJxCtC27Xa7eKQlnHY"
-    default_gmaps_key = "IzaSyBZnZH9E03uTaEZSvD002FCWbkx9iguTXM"
+    default_openai_key = st.session_state.openai_api_key if st.session_state.openai_api_key else "api1234567890"
+    default_gmaps_key = "api1234567890"
     
     openai_api_key = st.text_input("OpenAI API Key", type="password", value=default_openai_key)
     google_maps_api_key = st.text_input("Google Maps API Key", type="password", key="gmaps_key", value=default_gmaps_key)
