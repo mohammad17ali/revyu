@@ -2,17 +2,17 @@
   {
     "sentiment": "Positive",
     "customer_name": "Anonymous",
-    "store_branch": "Westside Phoenix Marketcity",
+    "store_branch": "Westside Select City Walk",
     "visit_date": null,
     "brand_mentioned": null,
     "mentioned_staff": null,
-    "praised_category": "Collection/Variety",
+    "praised_category": "Store Ambience",
     "praised_product": null,
-    "specific_praise": "Upgraded collection with trendy options",
+    "specific_praise": "Modern, clean, full of life",
     "customer_praise_quotes": [
-      "Variety of options for all ages",
-      "Quality of clothes is very nice",
-      "Trendy clothes available here"
+      "Classy ambience with seasonal decor",
+      "Great mix of premium and mid-range brands",
+      "Perfect for a day out with friends"
     ],
     "satisfaction_score": 8,
     "repeat_intent": false,
@@ -20,49 +20,24 @@
     "loyalty_signal": false,
     "brand_affinity_signal": false,
     "word_of_mouth_intent": false,
-    "purchase_expansion_intent": true,
-    "original_review": "Variety of options for men, women and children. They have upgraded their collection. Quality of clothes is very nice. Price of the clother are a bit on the higher side. Trendy clothes are available here. Home decor are also available here.",
-    "store_name": "Westside Phoenix Marketcity"
+    "purchase_expansion_intent": false,
+    "original_review": "Select Citywalk Mall is one of the best malls in Delhi — modern, clean, and full of life. The vibe is upscale but still welcoming. You'll find a great mix of premium and mid-range brands, so whether you're window shopping or ready to spend, there's something for everyone.\n\nThe food court has a solid variety — from Indian street-style to international chains. There are also plenty of cute cafes and dessert spots if you're in the mood to chill. Ambience is classy, and they often have seasonal decor or live events that add to the experience.\n\nOnly downside is that it can get really crowded on weekends, and prices are definitely on the higher side — so not the most budget-friendly place. But overall, it's perfect for a day out with friends, a casual date, or even solo exploration",
+    "store_name": "Westside Select City Walk"
   },
   {
     "sentiment": "Positive",
     "customer_name": "Anonymous",
-    "store_branch": "Westside Phoenix Marketcity",
+    "store_branch": "Westside Select City Walk",
     "visit_date": null,
     "brand_mentioned": null,
     "mentioned_staff": null,
     "praised_category": "Store Ambience",
     "praised_product": null,
-    "specific_praise": "Lively store with helpful staff",
+    "specific_praise": "Family-friendly entertainment destination",
     "customer_praise_quotes": [
-      "Amazing western music atmosphere",
-      "Assisting staff for best experience",
-      "Cost efficient clothing store"
-    ],
-    "satisfaction_score": 9,
-    "repeat_intent": true,
-    "promo_or_offer_praise": false,
-    "loyalty_signal": true,
-    "brand_affinity_signal": false,
-    "word_of_mouth_intent": true,
-    "purchase_expansion_intent": true,
-    "original_review": "An amazing store to buy clothing material, cosmetics and more. There was amazing western music playing throughout the store which filled the liveliness and the staff were assisting everyone for the best experience and this was one of the most cost efficient clothing store I’ve ever been to.",
-    "store_name": "Westside Phoenix Marketcity"
-  },
-  {
-    "sentiment": "Positive",
-    "customer_name": "Anonymous",
-    "store_branch": "Westside Phoenix Marketcity",
-    "visit_date": null,
-    "brand_mentioned": null,
-    "mentioned_staff": "Manisha. K",
-    "praised_category": "Staff Behavior",
-    "praised_product": null,
-    "specific_praise": "Friendly staff and great collection",
-    "customer_praise_quotes": [
-      "Sweetest Manisha. K at trial rooms",
-      "Took special care during rush",
-      "Made the experience good"
+      "Memorable outing for the kids",
+      "Convenient place for adults to unwind",
+      "Highly recommended for family outings"
     ],
     "satisfaction_score": 9,
     "repeat_intent": true,
@@ -70,8 +45,83 @@
     "loyalty_signal": true,
     "brand_affinity_signal": true,
     "word_of_mouth_intent": true,
-    "purchase_expansion_intent": true,
-    "original_review": "great collection and really nice people at the tills! special mention to the sweetest Manisha. K who was managing the trial rooms and even during the rush took special care of us and made the experience good ☺️",
-    "store_name": "Westside Phoenix Marketcity"
+    "purchase_expansion_intent": false,
+    "original_review": "Select City Walk in Saket is one of my favorite places to take my kids whenever they feel bored and want a fun outing during our visits to India. It’s the perfect spot for a mix of entertainment and relaxation — whether it’s catching a movie, grabbing a quick snack, or just enjoying some family time. My kids especially love exploring the mall and checking out the different activities, which keeps them happily engaged for hours.\n\nFor snacks or a quick bite, Khan Chacha and the coffee shop on the first level, tucked in the corner next to the central circle, are our go-to spots. The food is always fresh and delicious, and it’s a nice place to sit, relax, and enjoy a treat. If you’re looking for something more substantial, the Dhaba on the upper level (I believe that’s the name) is a great choice for authentic Indian food — especially after a few cold drinks. The atmosphere there feels lively and welcoming, making it a perfect spot to enjoy traditional flavors in a casual setting.\n\nOverall, Select City Walk is more than just a mall — it’s a family-friendly destination that combines shopping, food, and entertainment seamlessly. Every time we visit, it becomes a memorable outing for the kids and a convenient place for adults to unwind. Highly recommended for anyone visiting Delhi with family or looking for a fun place to hang out.",
+    "store_name": "Westside Select City Walk"
+  },
+  {
+    "sentiment": "Positive",
+    "customer_name": "Anonymous",
+    "store_branch": "Westside Select City Walk",
+    "visit_date": null,
+    "brand_mentioned": null,
+    "mentioned_staff": null,
+    "praised_category": "Store Ambience",
+    "praised_product": null,
+    "specific_praise": "Wonderful ambience and entertainment",
+    "customer_praise_quotes": [
+      "Amazing place for shopping and dining",
+      "Lots of entertainment options for kids",
+      "Must-visit for value-added time"
+    ],
+    "satisfaction_score": 8,
+    "repeat_intent": false,
+    "promo_or_offer_praise": false,
+    "loyalty_signal": false,
+    "brand_affinity_signal": false,
+    "word_of_mouth_intent": false,
+    "purchase_expansion_intent": false,
+    "original_review": "Amazing place to visit for shopping, dining, recreation and entertainment. Ambience is wonderful and pleasant. Lots of eateries, cafes, fast food joints, big restaurants and hotels for snacks, dining recreation and event celebrations. Lot of super entertaining things for kids and children. Action packed plays, toy vehicles for full ton enjoyment and entertainment for children. Large no of shops and brand showrooms of garments, clothing, jwellery, toys, imaginative play collection, household items, appliances and much more. Must visit place for entertainment, shopping, dining and value added time spent.",
+    "store_name": "Westside Select City Walk"
+  },
+  {
+    "sentiment": "Positive",
+    "customer_name": "Anonymous",
+    "store_branch": "Westside Select City Walk",
+    "visit_date": null,
+    "brand_mentioned": null,
+    "mentioned_staff": null,
+    "praised_category": "Store Ambience",
+    "praised_product": null,
+    "specific_praise": "Classy store with variety",
+    "customer_praise_quotes": [
+      "Very classy store",
+      "Lots of food options",
+      "Nice ice cream parlours"
+    ],
+    "satisfaction_score": 8,
+    "repeat_intent": false,
+    "promo_or_offer_praise": false,
+    "loyalty_signal": false,
+    "brand_affinity_signal": false,
+    "word_of_mouth_intent": false,
+    "purchase_expansion_intent": false,
+    "original_review": "Slay place. Very classy. Lots of food options. They have both sephora AND nykaa luxe and Tira as well. Food court is always crowded though. Other than that there are other food outlets too. Nice ice cream parlours too.",
+    "store_name": "Westside Select City Walk"
+  },
+  {
+    "sentiment": "Positive",
+    "customer_name": "Anonymous",
+    "store_branch": "Westside Select City Walk",
+    "visit_date": null,
+    "brand_mentioned": null,
+    "mentioned_staff": "uncle playing the piano",
+    "praised_category": "Store Ambience",
+    "praised_product": null,
+    "specific_praise": "Soothing and pleasant ambience",
+    "customer_praise_quotes": [
+      "Music added a soothing vibe",
+      "Great place to shop and eat",
+      "Enjoy a relaxed day out"
+    ],
+    "satisfaction_score": 9,
+    "repeat_intent": false,
+    "promo_or_offer_praise": false,
+    "loyalty_signal": false,
+    "brand_affinity_signal": false,
+    "word_of_mouth_intent": false,
+    "purchase_expansion_intent": false,
+    "original_review": "I visited Nexus Select City Mall, Saket, and had a great time. The mall is clean, well-maintained, and has a nice mix of stores and restaurants. What made the visit even more special was an uncle playing the piano—his music added such a soothing and pleasant vibe. It’s a great place to shop, eat, and just enjoy a relaxed day out!",
+    "store_name": "Westside Select City Walk"
   }
 ]
